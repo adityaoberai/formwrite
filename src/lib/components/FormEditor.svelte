@@ -7,12 +7,14 @@
 		BACKGROUND_LABELS,
 		FONT_LABELS,
 		LAYOUT_LABELS,
+		LOGO_SIZE_LABELS,
 		RADIUS_LABELS,
 		backgroundStyle,
 		buttonRadiusClass,
 		cardRadiusClass,
 		fontClass,
 		isDarkBackground,
+		logoHeightClass,
 		splitSteps,
 		themeVars
 	} from '$lib/theme';
@@ -23,9 +25,11 @@
 		THEME_BACKGROUNDS,
 		THEME_FONTS,
 		THEME_LAYOUTS,
+		THEME_LOGO_SIZES,
 		THEME_RADII,
 		type FieldType,
 		type FormField,
+		type FormLogo,
 		type FormTheme
 	} from '$lib/types';
 
@@ -41,8 +45,17 @@
 		initial,
 		disabled = false,
 		error = null,
-		saved = false
-	}: { initial: Initial; disabled?: boolean; error?: string | null; saved?: boolean } = $props();
+		saved = false,
+		logoUrl = ''
+	}: {
+		initial: Initial;
+		disabled?: boolean;
+		error?: string | null;
+		saved?: boolean;
+		logoUrl?: string;
+	} = $props();
+
+	const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml';
 
 	type EditableField = Omit<FormField, 'options'> & { optionsText: string };
 
@@ -95,12 +108,22 @@
 	let expanded = $state<string | null>(null);
 	let saving = $state(false);
 	let panel = $state<'questions' | 'design'>('questions');
+	let logoBusy = $state(false);
+	let logoError = $state<string | null>(null);
 
 	const previewFields = $derived(fields.map(toField));
 	const serialized = $derived(JSON.stringify(previewFields));
 	const serializedTheme = $derived(JSON.stringify(theme));
+	// The logo is persisted by its own action the moment it is uploaded, so it never counts as unsaved.
+	const themeForDirty = $derived(JSON.stringify({ ...theme, logo: null }));
 	const snapshot = $derived(
-		JSON.stringify({ title, description, successMessage, serialized, serializedTheme })
+		JSON.stringify({
+			title,
+			description,
+			successMessage,
+			serialized,
+			serializedTheme: themeForDirty
+		})
 	);
 	// svelte-ignore state_referenced_locally
 	const baseline = JSON.stringify({
@@ -108,7 +131,7 @@
 		description: initial.description,
 		successMessage: initial.successMessage,
 		serialized: JSON.stringify(initial.fields.map((f) => toField(toEditable(f)))),
-		serializedTheme: JSON.stringify(initial.theme)
+		serializedTheme: JSON.stringify({ ...initial.theme, logo: null })
 	});
 	const dirty = $derived(snapshot !== baseline);
 
@@ -155,6 +178,10 @@
 	}
 	function onBeforeUnload(e: BeforeUnloadEvent) {
 		if (dirty) e.preventDefault();
+	}
+	function submitLogo(e: Event) {
+		const input = e.currentTarget as HTMLInputElement;
+		if (input.files?.length) input.form?.requestSubmit();
 	}
 </script>
 
@@ -496,6 +523,93 @@
 		{:else}
 			<section class="card animate-rise divide-y divide-stone-100">
 				<div class="p-5">
+					<h3 class="text-sm font-semibold">Logo</h3>
+					<p class="help mt-0.5">
+						Shown above the form title. PNG, JPG, WebP, GIF or SVG up to 2 MB.
+					</p>
+					<div class="mt-3 flex flex-wrap items-center gap-4">
+						{#if theme.logo}
+							<img
+								src="{logoUrl}?v={theme.logo.fileId}"
+								alt="Current logo"
+								class="max-w-[220px] rounded-md border border-stone-200 bg-white object-contain p-1.5 {logoHeightClass[
+									theme.logoSize
+								]}"
+							/>
+							<div class="flex items-center gap-2">
+								<label
+									class="btn btn-secondary btn-sm cursor-pointer {disabled || logoBusy
+										? 'pointer-events-none opacity-50'
+										: ''}"
+								>
+									<Icon name="upload" size={14} />
+									{logoBusy ? 'Uploading...' : 'Replace'}
+									<input
+										type="file"
+										form="logo-form"
+										name="logo"
+										accept={LOGO_ACCEPT}
+										class="sr-only"
+										onchange={submitLogo}
+										disabled={disabled || logoBusy}
+									/>
+								</label>
+								<button
+									type="submit"
+									form="logo-remove-form"
+									class="btn btn-ghost btn-sm text-red-700"
+									disabled={disabled || logoBusy}
+								>
+									<Icon name="trash" size={14} /> Remove
+								</button>
+							</div>
+						{:else}
+							<label
+								class="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-stone-300 px-4 py-3 text-sm text-stone-600 transition hover:border-brand-300 hover:bg-brand-50/40 {disabled
+									? 'pointer-events-none opacity-50'
+									: ''}"
+							>
+								<span class="grid size-9 place-items-center rounded-lg bg-stone-100 text-stone-500"
+									><Icon name="upload" size={16} /></span
+								>
+								<span>
+									<span class="block font-medium text-ink"
+										>{logoBusy ? 'Uploading...' : 'Upload a logo'}</span
+									>
+									<span class="block text-xs text-stone-500">Square or wide images work best.</span>
+								</span>
+								<input
+									type="file"
+									form="logo-form"
+									name="logo"
+									accept={LOGO_ACCEPT}
+									class="sr-only"
+									onchange={submitLogo}
+									disabled={disabled || logoBusy}
+								/>
+							</label>
+						{/if}
+					</div>
+					{#if theme.logo}
+						<div class="mt-4 max-w-xs">
+							<h4 class="label">Logo size</h4>
+							{@render segmented(
+								'Logo size',
+								THEME_LOGO_SIZES,
+								LOGO_SIZE_LABELS,
+								theme.logoSize,
+								(v) => (theme.logoSize = v as FormTheme['logoSize'])
+							)}
+						</div>
+					{/if}
+					{#if logoError}
+						<p class="alert-error mt-3" role="alert">
+							<Icon name="alert-circle" size={16} class="mt-0.5" />{logoError}
+						</p>
+					{/if}
+				</div>
+
+				<div class="p-5">
 					<h3 class="text-sm font-semibold">Accent color</h3>
 					<p class="help mt-0.5">Used for the header bar, buttons, focus rings and choices.</p>
 					<div class="mt-3 flex flex-wrap items-center gap-2">
@@ -717,6 +831,15 @@
 							>
 						</div>
 					{/if}
+					{#if theme.logo}
+						<img
+							src="{logoUrl}?v={theme.logo.fileId}"
+							alt=""
+							class="mb-4 w-auto max-w-[220px] object-contain object-left {logoHeightClass[
+								theme.logoSize
+							]}"
+						/>
+					{/if}
 					<h3 class="text-xl font-semibold tracking-tight {title ? '' : 'text-stone-400'}">
 						{title || 'Untitled form'}
 					</h3>
@@ -748,3 +871,45 @@
 		</div>
 	</aside>
 </div>
+
+{#if !disabled}
+	<form
+		id="logo-form"
+		method="POST"
+		action="?/logo"
+		enctype="multipart/form-data"
+		class="hidden"
+		use:enhance={() => {
+			logoBusy = true;
+			logoError = null;
+			return async ({ result, formElement }) => {
+				logoBusy = false;
+				formElement.reset();
+				if (result.type === 'success' && result.data?.logo) {
+					theme.logo = result.data.logo as FormLogo;
+				} else if (result.type === 'failure') {
+					logoError = String(result.data?.logoError ?? 'Could not upload the logo');
+				} else if (result.type === 'error') {
+					logoError = 'Could not upload the logo';
+				}
+			};
+		}}
+	></form>
+	<form
+		id="logo-remove-form"
+		method="POST"
+		action="?/removeLogo"
+		class="hidden"
+		use:enhance={() => {
+			logoBusy = true;
+			logoError = null;
+			return async ({ result }) => {
+				logoBusy = false;
+				if (result.type === 'success') theme.logo = null;
+				else if (result.type === 'failure') {
+					logoError = String(result.data?.logoError ?? 'Could not remove the logo');
+				}
+			};
+		}}
+	></form>
+{/if}

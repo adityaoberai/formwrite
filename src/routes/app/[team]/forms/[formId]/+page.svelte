@@ -123,7 +123,8 @@
 			theme: data.form.theme
 		}}
 		disabled={!data.canEdit}
-		error={form?.message ?? null}
-		saved={!!form?.saved}
+		error={form && 'message' in form ? (form.message ?? null) : null}
+		saved={!!(form && 'saved' in form && form.saved)}
+		logoUrl={data.logoUrl}
 	/>
 {/key}

@@ -9,6 +9,7 @@
 		cardRadiusClass,
 		fontClass,
 		isDarkBackground,
+		logoHeightClass,
 		splitSteps,
 		themeVars
 	} from '$lib/theme';
@@ -88,6 +89,15 @@
 		>
 			<div class="bg-accent h-2"></div>
 			<div class="p-6 sm:p-8">
+				{#if theme.logo}
+					<img
+						src="{data.logoUrl}?v={theme.logo.fileId}"
+						alt=""
+						class="mb-5 w-auto max-w-[260px] object-contain object-left {logoHeightClass[
+							theme.logoSize
+						]}"
+					/>
+				{/if}
 				{#if success}
 					<div class="py-6 text-center">
 						<div

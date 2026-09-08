@@ -3,8 +3,10 @@ import {
 	THEME_BACKGROUNDS,
 	THEME_FONTS,
 	THEME_LAYOUTS,
+	THEME_LOGO_SIZES,
 	THEME_RADII,
 	type FormField,
+	type FormLogo,
 	type FormTheme
 } from '$lib/types';
 
@@ -40,6 +42,25 @@ export const LAYOUT_LABELS: Record<FormTheme['layout'], string> = {
 	single: 'Single page',
 	steps: 'One section per step'
 };
+export const LOGO_SIZE_LABELS: Record<FormTheme['logoSize'], string> = {
+	sm: 'Small',
+	md: 'Medium',
+	lg: 'Large'
+};
+export const logoHeightClass: Record<FormTheme['logoSize'], string> = {
+	sm: 'h-8',
+	md: 'h-12',
+	lg: 'h-16'
+};
+
+const FILE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
+
+function normalizeLogo(input: unknown): FormLogo | null {
+	if (!input || typeof input !== 'object') return null;
+	const l = input as Record<string, unknown>;
+	if (typeof l.fileId !== 'string' || !FILE_ID.test(l.fileId)) return null;
+	return { fileId: l.fileId, name: typeof l.name === 'string' ? l.name.slice(0, 120) : 'logo' };
+}
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
@@ -60,7 +81,9 @@ export function normalizeTheme(input: unknown): FormTheme {
 		submitLabel:
 			(typeof t.submitLabel === 'string' ? t.submitLabel.trim().slice(0, 40) : '') ||
 			DEFAULT_THEME.submitLabel,
-		showBranding: t.showBranding !== false
+		showBranding: t.showBranding !== false,
+		logo: normalizeLogo(t.logo),
+		logoSize: pick(THEME_LOGO_SIZES, t.logoSize, DEFAULT_THEME.logoSize)
 	};
 }
 

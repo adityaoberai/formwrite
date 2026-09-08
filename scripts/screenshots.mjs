@@ -120,18 +120,76 @@ try {
 			description: 'Takes about a minute. Your answers stay with our team.',
 			successMessage: 'Thanks, we read every response.',
 			fields: JSON.stringify([
-				{ id: 'q_s1', type: 'section', label: 'About you', helpText: 'Two quick questions.', required: false },
-				{ id: 'q_name', type: 'text', label: 'Your name', required: true, placeholder: 'Ada Lovelace' },
+				{
+					id: 'q_s1',
+					type: 'section',
+					label: 'About you',
+					helpText: 'Two quick questions.',
+					required: false
+				},
+				{
+					id: 'q_name',
+					type: 'text',
+					label: 'Your name',
+					required: true,
+					placeholder: 'Ada Lovelace'
+				},
 				{ id: 'q_email', type: 'email', label: 'Work email', required: true },
-				{ id: 'q_s2', type: 'section', label: 'Your experience', helpText: 'Be honest, we can take it.', required: false },
-				{ id: 'q_rating', type: 'radio', label: 'How did we do?', required: true, options: ['Great', 'Okay', 'Poor'] },
-				{ id: 'q_topics', type: 'checkbox', label: 'What should we improve?', required: false, options: ['Docs', 'Pricing', 'Support'] },
-				{ id: 'q_more', type: 'textarea', label: 'Anything else?', required: false, helpText: 'Optional, but we appreciate detail.' },
+				{
+					id: 'q_s2',
+					type: 'section',
+					label: 'Your experience',
+					helpText: 'Be honest, we can take it.',
+					required: false
+				},
+				{
+					id: 'q_rating',
+					type: 'radio',
+					label: 'How did we do?',
+					required: true,
+					options: ['Great', 'Okay', 'Poor']
+				},
+				{
+					id: 'q_topics',
+					type: 'checkbox',
+					label: 'What should we improve?',
+					required: false,
+					options: ['Docs', 'Pricing', 'Support']
+				},
+				{
+					id: 'q_more',
+					type: 'textarea',
+					label: 'Anything else?',
+					required: false,
+					helpText: 'Optional, but we appreciate detail.'
+				},
 				{ id: 'q_file', type: 'file', label: 'Screenshot', required: false }
 			]),
-			theme: JSON.stringify({ accent: '#0f766e', background: 'gradient', radius: 'lg', font: 'serif', layout: 'steps', submitLabel: 'Send feedback', showBranding: true })
+			theme: JSON.stringify({
+				accent: '#0f766e',
+				background: 'gradient',
+				radius: 'lg',
+				font: 'serif',
+				layout: 'steps',
+				submitLabel: 'Send feedback',
+				showBranding: true
+			})
 		}
 	});
+	{
+		const logoData = new FormData();
+		logoData.set(
+			'logo',
+			new File([readFileSync(new URL('../static/og.png', import.meta.url))], 'logo.png', {
+				type: 'image/png'
+			})
+		);
+		await req(`/app/${teamId}/forms/${formId}?/logo`, {
+			cookie,
+			method: 'POST',
+			multipart: logoData
+		});
+	}
 	await req(`/app/${teamId}/forms/${formId}?/publish`, {
 		cookie,
 		method: 'POST',
@@ -261,14 +319,32 @@ try {
 	await shot('/app', 'workspaces.png', { fullPage: false });
 	await shot(`/app/${teamId}`, 'forms.png', { fullPage: false });
 	await shot(`/app/${teamId}/forms/${formId}`, 'editor.png');
-	await send('Runtime.evaluate', { expression: `document.querySelector('[role=tab]:nth-child(2)').click()` }, sessionId);
+	await send(
+		'Runtime.evaluate',
+		{ expression: `document.querySelector('[role=tab]:nth-child(2)').click()` },
+		sessionId
+	);
 	await new Promise((r) => setTimeout(r, 500));
 	{
-		const { result: { cssContentSize } } = await send('Page.getLayoutMetrics', {}, sessionId);
+		const {
+			result: { cssContentSize }
+		} = await send('Page.getLayoutMetrics', {}, sessionId);
 		const h = Math.min(Math.ceil(cssContentSize.height), 4000);
-		await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: h, deviceScaleFactor: 1, mobile: false }, sessionId);
+		await send(
+			'Emulation.setDeviceMetricsOverride',
+			{ width: 1440, height: h, deviceScaleFactor: 1, mobile: false },
+			sessionId
+		);
 		await new Promise((r) => setTimeout(r, 300));
-		const { result } = await send('Page.captureScreenshot', { format: 'png', clip: { x: 0, y: 0, width: 1440, height: h, scale: 1 }, captureBeyondViewport: true }, sessionId);
+		const { result } = await send(
+			'Page.captureScreenshot',
+			{
+				format: 'png',
+				clip: { x: 0, y: 0, width: 1440, height: h, scale: 1 },
+				captureBeyondViewport: true
+			},
+			sessionId
+		);
 		writeFileSync(join(OUT, 'editor-design.png'), Buffer.from(result.data, 'base64'));
 		console.log('saved editor-design.png');
 	}

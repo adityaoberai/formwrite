@@ -240,6 +240,47 @@ try {
 		'editor loads normalized theme and section'
 	);
 
+	// Logo upload goes into the workspace bucket and is served only to members while the form is a draft.
+	const png = Buffer.from(
+		'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+		'base64'
+	);
+	const logoData = new FormData();
+	logoData.set('logo', new File([png], 'logo.png', { type: 'image/png' }));
+	const logoUp = await req(`/app/${teamId}/forms/${formId}?/logo`, {
+		cookie,
+		method: 'POST',
+		multipart: logoData
+	});
+	ok(
+		logoUp.res.status === 200 && logoUp.text.includes('fileId'),
+		'POST ?/logo uploads a logo',
+		logoUp.text.slice(0, 120)
+	);
+	const badLogo = new FormData();
+	badLogo.set('logo', new File(['hi'], 'x.txt', { type: 'text/plain' }));
+	const logoBad = await req(`/app/${teamId}/forms/${formId}?/logo`, {
+		cookie,
+		method: 'POST',
+		multipart: badLogo
+	});
+	ok(
+		logoBad.res.status === 400 && logoBad.text.includes('PNG, JPG'),
+		'POST ?/logo rejects non-images'
+	);
+	const logoMember = await req(`/f/${teamId}/${formId}/logo`, { cookie });
+	ok(
+		logoMember.res.status === 200 &&
+			(logoMember.res.headers.get('content-type') ?? '').startsWith('image/png'),
+		'draft logo is served to members'
+	);
+	const logoGuest = await req(`/f/${teamId}/${formId}/logo`);
+	ok(
+		logoGuest.res.status === 404,
+		'draft logo is hidden from guests',
+		String(logoGuest.res.status)
+	);
+
 	const publish = await req(`/app/${teamId}/forms/${formId}?/publish`, {
 		cookie,
 		method: 'POST',
@@ -266,6 +307,21 @@ try {
 		pub.text.includes('id="step-0"') && pub.text.includes('id="step-1"'),
 		'public form server-renders every step'
 	);
+	const logoPublic = await req(`/f/${teamId}/${formId}/logo`);
+	ok(
+		logoPublic.res.status === 200 &&
+			(logoPublic.res.headers.get('cache-control') ?? '').includes('public'),
+		'published logo is public and cacheable'
+	);
+	ok(pub.text.includes(`/f/${teamId}/${formId}/logo?v=`), 'public form renders the logo');
+	const logoRemove = await req(`/app/${teamId}/forms/${formId}?/removeLogo`, {
+		cookie,
+		method: 'POST',
+		form: {}
+	});
+	ok(logoRemove.res.status === 200, 'POST ?/removeLogo removes the logo');
+	const logoGone = await req(`/f/${teamId}/${formId}/logo`);
+	ok(logoGone.res.status === 404, 'removed logo is no longer served', String(logoGone.res.status));
 
 	// Invalid submission
 	const bad = new FormData();

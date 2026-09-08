@@ -48,6 +48,12 @@ export const THEME_BACKGROUNDS = ['plain', 'soft', 'gradient', 'dark'] as const;
 export const THEME_RADII = ['sm', 'md', 'lg'] as const;
 export const THEME_FONTS = ['sans', 'serif', 'mono'] as const;
 export const THEME_LAYOUTS = ['single', 'steps'] as const;
+export const THEME_LOGO_SIZES = ['sm', 'md', 'lg'] as const;
+
+export interface FormLogo {
+	fileId: string;
+	name: string;
+}
 
 export interface FormTheme {
 	/** Hex color, e.g. #4f46e5 */
@@ -59,6 +65,9 @@ export interface FormTheme {
 	layout: (typeof THEME_LAYOUTS)[number];
 	submitLabel: string;
 	showBranding: boolean;
+	/** Uploaded logo stored in the workspace bucket, shown above the form title. */
+	logo: FormLogo | null;
+	logoSize: (typeof THEME_LOGO_SIZES)[number];
 }
 
 export const DEFAULT_THEME: FormTheme = {
@@ -68,7 +77,9 @@ export const DEFAULT_THEME: FormTheme = {
 	font: 'sans',
 	layout: 'single',
 	submitLabel: 'Submit',
-	showBranding: true
+	showBranding: true,
+	logo: null,
+	logoSize: 'md'
 };
 
 export interface FormData {

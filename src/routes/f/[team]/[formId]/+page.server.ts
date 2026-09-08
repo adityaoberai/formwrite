@@ -48,7 +48,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			fields: form.fields ?? [],
 			successMessage: form.successMessage || 'Thanks! Your response has been recorded.',
 			theme: normalizeTheme(form.theme)
-		}
+		},
+		logoUrl: `/f/${params.team}/${params.formId}/logo`
 	};
 };
 
