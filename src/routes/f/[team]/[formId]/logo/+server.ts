@@ -1,16 +1,20 @@
 import { error } from '@sveltejs/kit';
+import { ImageFormat } from 'node-appwrite';
 import type { RequestHandler } from './$types';
 import { DATABASE_ID, createAdminClient } from '$lib/server/appwrite';
 import { statusOf } from '$lib/server/errors';
 import { bucketId, formsCollection } from '$lib/server/tenant';
-import { normalizeTheme } from '$lib/theme';
+import { LOGO_PREVIEW, normalizeTheme } from '$lib/theme';
 import type { FormDocument } from '$lib/types';
 
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
 
 /**
- * Serves a form's logo. Anyone can load it for a published form; for drafts only workspace
- * members can, which is what lets the editor preview show it before publishing.
+ * Serves a form's logo as a resized preview (never the original file) that fits inside the
+ * LOGO_PREVIEW box, so a large upload cannot blow up the page. The fitted size is measured at
+ * upload time; older logos without one get a height-only preview, which keeps the aspect ratio.
+ * Anyone can load it for a published form; for drafts only workspace members can, which is what
+ * lets the editor preview show it before publishing.
  */
 export const GET: RequestHandler = async ({ params, locals, setHeaders }) => {
 	if (!ID.test(params.team) || !ID.test(params.formId)) error(404, 'Not found');
@@ -40,12 +44,18 @@ export const GET: RequestHandler = async ({ params, locals, setHeaders }) => {
 	}
 
 	try {
-		const [meta, bytes] = await Promise.all([
-			admin.storage.getFile({ bucketId: bucketId(params.team), fileId: logo.fileId }),
-			admin.storage.getFileView({ bucketId: bucketId(params.team), fileId: logo.fileId })
-		]);
+		const size =
+			logo.width && logo.height
+				? { width: logo.width, height: logo.height }
+				: { height: LOGO_PREVIEW.height };
+		const bytes = await admin.storage.getFilePreview({
+			bucketId: bucketId(params.team),
+			fileId: logo.fileId,
+			...size,
+			output: ImageFormat.Webp
+		});
 		setHeaders({
-			'content-type': meta.mimeType || 'application/octet-stream',
+			'content-type': 'image/webp',
 			'content-length': String(bytes.byteLength),
 			'cache-control': published ? 'public, max-age=3600' : 'private, no-store',
 			'x-content-type-options': 'nosniff',

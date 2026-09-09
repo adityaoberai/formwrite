@@ -132,7 +132,7 @@
 						</td>
 						<td><StatusBadge status={f.status} /></td>
 						<td class="text-right tabular-nums">
-							<a href="{base}/forms/{f.id}/submissions" class="font-medium hover:underline"
+							<a href="{base}/forms/{f.id}/responses" class="font-medium hover:underline"
 								>{f.submissions}</a
 							>
 						</td>
@@ -152,7 +152,7 @@
 										<Icon name="external-link" size={14} /> Open
 									</a>
 								{/if}
-								<a class="btn btn-ghost btn-sm" href="{base}/forms/{f.id}/submissions"
+								<a class="btn btn-ghost btn-sm" href="{base}/forms/{f.id}/responses"
 									><Icon name="inbox" size={14} /> Responses</a
 								>
 								{#if data.canEdit}

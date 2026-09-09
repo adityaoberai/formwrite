@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	import type { FormField } from '$lib/types';
 
 	let {
@@ -14,6 +15,13 @@
 			.filter(Boolean)
 			.join(' ') || undefined
 	);
+	const ratingMax = $derived(field.max && field.max > 0 ? field.max : 5);
+	const grouped = $derived(
+		field.type === 'radio' ||
+			field.type === 'checkbox' ||
+			field.type === 'yes_no' ||
+			field.type === 'rating'
+	);
 </script>
 
 {#if field.type === 'section'}
@@ -23,31 +31,79 @@
 			<p class="mt-1 text-sm whitespace-pre-line text-stone-600">{field.helpText}</p>
 		{/if}
 	</div>
+{:else if field.type === 'paragraph'}
+	<p class="text-sm leading-relaxed whitespace-pre-line text-stone-600">{field.label}</p>
 {:else}
 	<div>
-		{#if field.type === 'radio' || field.type === 'checkbox'}
+		{#if grouped}
 			<fieldset aria-describedby={describedBy}>
 				<legend class="label">
 					{field.label}{#if field.required}<span class="text-red-600"> *</span>{/if}
 				</legend>
-				<div class="mt-1 space-y-2">
-					{#each field.options ?? [] as option, i (option)}
-						<label class="flex items-center gap-2 text-sm text-stone-800">
+				{#if field.helpText}
+					<p class="help -mt-0.5 mb-2" id="{field.id}-help">{field.helpText}</p>
+				{/if}
+				{#if field.type === 'radio' || field.type === 'checkbox'}
+					<div class="fw-choices mt-1">
+						{#each field.options ?? [] as option, i (option)}
+							<label class="fw-choice">
+								<input
+									type={field.type}
+									name={field.id}
+									value={option}
+									class="border-stone-300 text-brand-600 focus:ring-brand-500 {field.type ===
+									'checkbox'
+										? 'rounded'
+										: ''}"
+									checked={field.type === 'radio' ? single === option : multi.includes(option)}
+									required={field.type === 'radio' && field.required && i === 0 ? true : undefined}
+								/>
+								<span>{option}</span>
+							</label>
+						{/each}
+					</div>
+				{:else if field.type === 'yes_no'}
+					<div class="fw-yesno mt-1">
+						<label class="fw-choice">
 							<input
-								type={field.type}
+								type="radio"
 								name={field.id}
-								value={option}
-								class="border-stone-300 text-brand-600 focus:ring-brand-500 {field.type ===
-								'checkbox'
-									? 'rounded'
-									: ''}"
-								checked={field.type === 'radio' ? single === option : multi.includes(option)}
-								required={field.type === 'radio' && field.required && i === 0 ? true : undefined}
+								value="yes"
+								class="border-stone-300 text-brand-600 focus:ring-brand-500"
+								checked={single.toLowerCase() === 'yes'}
+								required={field.required ? true : undefined}
 							/>
-							{option}
+							<span>Yes</span>
 						</label>
-					{/each}
-				</div>
+						<label class="fw-choice">
+							<input
+								type="radio"
+								name={field.id}
+								value="no"
+								class="border-stone-300 text-brand-600 focus:ring-brand-500"
+								checked={single.toLowerCase() === 'no'}
+							/>
+							<span>No</span>
+						</label>
+					</div>
+				{:else}
+					<div class="fw-stars mt-1">
+						{#each Array.from({ length: ratingMax }, (_, i) => i + 1) as n (n)}
+							<label title="{n} of {ratingMax}">
+								<input
+									type="radio"
+									name={field.id}
+									value={n}
+									class="sr-only"
+									checked={single === String(n)}
+									required={field.required && n === 1 ? true : undefined}
+								/>
+								<Icon name="star" size={ratingMax > 7 ? 24 : 30} strokeWidth={1.5} />
+								<span class="sr-only">{n} of {ratingMax}</span>
+							</label>
+						{/each}
+					</div>
+				{/if}
 			</fieldset>
 		{:else}
 			<label class="label" for={field.id}>
@@ -74,7 +130,7 @@
 					aria-describedby={describedBy}
 					aria-invalid={error ? 'true' : undefined}
 				>
-					<option value="">Choose...</option>
+					<option value="">{field.placeholder || 'Choose...'}</option>
 					{#each field.options ?? [] as option (option)}
 						<option value={option}>{option}</option>
 					{/each}
@@ -94,7 +150,25 @@
 					class="input"
 					id={field.id}
 					name={field.id}
-					type={field.type === 'text' ? 'text' : field.type}
+					type={field.type === 'phone'
+						? 'tel'
+						: field.type === 'text' || field.type === 'url'
+							? 'text'
+							: field.type}
+					inputmode={field.type === 'url'
+						? 'url'
+						: field.type === 'phone'
+							? 'tel'
+							: field.type === 'number'
+								? 'decimal'
+								: undefined}
+					autocomplete={field.type === 'email'
+						? 'email'
+						: field.type === 'phone'
+							? 'tel'
+							: field.type === 'url'
+								? 'url'
+								: undefined}
 					step={field.type === 'number' ? 'any' : undefined}
 					placeholder={field.placeholder}
 					required={field.required}
@@ -104,7 +178,7 @@
 				/>
 			{/if}
 		{/if}
-		{#if field.helpText}
+		{#if field.helpText && !grouped}
 			<p class="help" id="{field.id}-help">{field.helpText}</p>
 		{/if}
 		{#if error}

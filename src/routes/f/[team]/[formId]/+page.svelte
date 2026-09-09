@@ -9,6 +9,7 @@
 		cardRadiusClass,
 		fontClass,
 		isDarkBackground,
+		LOGO_MAX_WIDTH_CLASS,
 		logoHeightClass,
 		splitSteps,
 		themeVars
@@ -78,7 +79,9 @@
 </svelte:head>
 
 <div
-	class="fw-theme min-h-screen px-4 py-10 sm:py-16 {fontClass[theme.font]}"
+	class="fw-theme min-h-screen px-4 {data.embed ? 'py-4' : 'py-10 sm:py-16'} {fontClass[
+		theme.font
+	]}"
 	style="{themeVars(theme)};{backgroundStyle(theme)}"
 >
 	<main class="mx-auto w-full max-w-xl animate-rise" id="form-top">
@@ -93,7 +96,7 @@
 					<img
 						src="{data.logoUrl}?v={theme.logo.fileId}"
 						alt=""
-						class="mb-5 w-auto max-w-[260px] object-contain object-left {logoHeightClass[
+						class="mb-5 w-auto object-contain object-left {LOGO_MAX_WIDTH_CLASS} {logoHeightClass[
 							theme.logoSize
 						]}"
 					/>
@@ -110,7 +113,7 @@
 						<p class="mt-2 text-stone-600">{data.form.successMessage}</p>
 						<a
 							class="btn btn-secondary mt-8 {buttonRadiusClass[theme.radius]}"
-							href="?"
+							href={data.embed ? '?embed=1' : '?'}
 							data-sveltekit-reload>Submit another response</a
 						>
 					</div>
@@ -256,7 +259,7 @@
 				{/if}
 			</div>
 		</div>
-		{#if theme.showBranding}
+		{#if theme.showBranding && !data.embed}
 			<p
 				class="mt-8 flex items-center justify-center gap-1.5 text-xs {dark
 					? 'text-white/60'

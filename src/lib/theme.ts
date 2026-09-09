@@ -47,11 +47,15 @@ export const LOGO_SIZE_LABELS: Record<FormTheme['logoSize'], string> = {
 	md: 'Medium',
 	lg: 'Large'
 };
+/** Rendered logo height; the image keeps its aspect ratio and never exceeds LOGO_MAX_WIDTH. */
 export const logoHeightClass: Record<FormTheme['logoSize'], string> = {
-	sm: 'h-8',
-	md: 'h-12',
-	lg: 'h-16'
+	sm: 'h-5',
+	md: 'h-7',
+	lg: 'h-10'
 };
+export const LOGO_MAX_WIDTH_CLASS = 'max-w-[180px]';
+/** Server-side cap for logo previews, in pixels. */
+export const LOGO_PREVIEW = { width: 720, height: 240 } as const;
 
 const FILE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
 
@@ -59,7 +63,24 @@ function normalizeLogo(input: unknown): FormLogo | null {
 	if (!input || typeof input !== 'object') return null;
 	const l = input as Record<string, unknown>;
 	if (typeof l.fileId !== 'string' || !FILE_ID.test(l.fileId)) return null;
-	return { fileId: l.fileId, name: typeof l.name === 'string' ? l.name.slice(0, 120) : 'logo' };
+	const logo: FormLogo = {
+		fileId: l.fileId,
+		name: typeof l.name === 'string' ? l.name.slice(0, 120) : 'logo'
+	};
+	const dim = (v: unknown) => (Number.isInteger(v) && (v as number) > 0 ? (v as number) : null);
+	const width = dim(l.width);
+	const height = dim(l.height);
+	if (width && height) Object.assign(logo, fitLogo(width, height));
+	return logo;
+}
+
+/** Scale a width/height pair down (never up) so it fits inside the LOGO_PREVIEW box. */
+export function fitLogo(width: number, height: number): { width: number; height: number } {
+	const scale = Math.min(1, LOGO_PREVIEW.width / width, LOGO_PREVIEW.height / height);
+	return {
+		width: Math.max(1, Math.round(width * scale)),
+		height: Math.max(1, Math.round(height * scale))
+	};
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;

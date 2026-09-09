@@ -39,9 +39,11 @@ async function loadPublishedForm(teamId: string, formId: string) {
 	return { admin, form };
 }
 
-export const load: PageServerLoad = async ({ params }) => {
+export const load: PageServerLoad = async ({ params, url }) => {
 	const { form } = await loadPublishedForm(params.team, params.formId);
 	return {
+		// Embedded forms (?embed=1) drop the outer padding and branding so they sit inside an iframe.
+		embed: url.searchParams.get('embed') === '1',
 		form: {
 			title: form.title,
 			description: form.description ?? '',
@@ -54,7 +56,7 @@ export const load: PageServerLoad = async ({ params }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ params, request }) => {
+	default: async ({ params, request, url }) => {
 		const { admin, form } = await loadPublishedForm(params.team, params.formId);
 		const fields = form.fields ?? [];
 		const formData = await request.formData();
@@ -95,8 +97,10 @@ export const actions: Actions = {
 			const submission: SubmissionData = {
 				formId: form.$id,
 				answers: stored,
-				userAgent: (request.headers.get('user-agent') ?? '').slice(0, 300)
+				userAgent: (request.headers.get('user-agent') ?? '').slice(0, 300),
+				status: 'new'
 			};
+			if (url.searchParams.get('embed') === '1') submission.embed = true;
 			await admin.db.createDocument<SubmissionDocument>({
 				databaseId: DATABASE_ID,
 				collectionId: submissionsCollection(params.team),

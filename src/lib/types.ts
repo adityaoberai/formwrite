@@ -4,13 +4,18 @@ export const FIELD_TYPES = [
 	'text',
 	'textarea',
 	'email',
+	'phone',
+	'url',
 	'number',
-	'date',
-	'select',
 	'radio',
 	'checkbox',
+	'select',
+	'yes_no',
+	'rating',
+	'date',
 	'file',
-	'section'
+	'section',
+	'paragraph'
 ] as const;
 export type FieldType = (typeof FIELD_TYPES)[number];
 
@@ -18,19 +23,75 @@ export const FIELD_TYPE_LABELS: Record<FieldType, string> = {
 	text: 'Short text',
 	textarea: 'Long text',
 	email: 'Email',
+	phone: 'Phone',
+	url: 'Website',
 	number: 'Number',
-	date: 'Date',
-	select: 'Dropdown',
 	radio: 'Single choice',
 	checkbox: 'Multiple choice',
+	select: 'Dropdown',
+	yes_no: 'Yes / No',
+	rating: 'Rating',
+	date: 'Date',
 	file: 'File upload',
-	section: 'Section'
+	section: 'Section',
+	paragraph: 'Paragraph'
 };
 
-export const FIELD_TYPES_WITH_OPTIONS: readonly FieldType[] = ['select', 'radio', 'checkbox'];
+export type FieldGroup = 'Text' | 'Choice' | 'Special' | 'Layout';
+export const FIELD_GROUPS: readonly FieldGroup[] = ['Text', 'Choice', 'Special', 'Layout'];
 
-/** Field types that collect an answer (everything except layout-only sections). */
-export const isQuestion = (field: FormField) => field.type !== 'section';
+export interface FieldTypeMeta {
+	type: FieldType;
+	label: string;
+	description: string;
+	group: FieldGroup;
+}
+
+/** Palette metadata for the builder, in display order. */
+export const FIELD_TYPE_META: readonly FieldTypeMeta[] = [
+	{ type: 'text', label: 'Short text', description: 'Single line answer', group: 'Text' },
+	{ type: 'textarea', label: 'Long text', description: 'Multi-line paragraph', group: 'Text' },
+	{ type: 'email', label: 'Email', description: 'Validated email address', group: 'Text' },
+	{ type: 'phone', label: 'Phone', description: 'Phone number', group: 'Text' },
+	{ type: 'url', label: 'Website', description: 'A link, validated', group: 'Text' },
+	{ type: 'number', label: 'Number', description: 'Numeric answer', group: 'Text' },
+	{ type: 'radio', label: 'Single choice', description: 'Pick one option', group: 'Choice' },
+	{
+		type: 'checkbox',
+		label: 'Multiple choice',
+		description: 'Pick many options',
+		group: 'Choice'
+	},
+	{ type: 'select', label: 'Dropdown', description: 'Compact select menu', group: 'Choice' },
+	{ type: 'yes_no', label: 'Yes / No', description: 'A simple decision', group: 'Choice' },
+	{ type: 'rating', label: 'Rating', description: 'Stars from 1 to N', group: 'Special' },
+	{ type: 'date', label: 'Date', description: 'Calendar date picker', group: 'Special' },
+	{ type: 'file', label: 'File upload', description: 'Kept with the response', group: 'Special' },
+	{
+		type: 'section',
+		label: 'Section',
+		description: 'Title that groups the questions after it',
+		group: 'Layout'
+	},
+	{ type: 'paragraph', label: 'Paragraph', description: 'Helper text block', group: 'Layout' }
+];
+
+export const FIELD_TYPES_WITH_OPTIONS: readonly FieldType[] = ['select', 'radio', 'checkbox'];
+export const FIELD_TYPES_WITH_PLACEHOLDER: readonly FieldType[] = [
+	'text',
+	'textarea',
+	'email',
+	'phone',
+	'url',
+	'number',
+	'select'
+];
+export const RATING_SCALES = [3, 5, 7, 10] as const;
+
+/** Layout-only field types that never collect an answer. */
+export const isLayoutType = (type: FieldType) => type === 'section' || type === 'paragraph';
+/** Field types that collect an answer. */
+export const isQuestion = (field: FormField) => !isLayoutType(field.type);
 
 export interface FormField {
 	id: string;
@@ -40,6 +101,8 @@ export interface FormField {
 	helpText?: string;
 	required: boolean;
 	options?: string[];
+	/** Rating scale (number of stars). */
+	max?: number;
 }
 
 export type FormStatus = 'draft' | 'published';
@@ -53,6 +116,9 @@ export const THEME_LOGO_SIZES = ['sm', 'md', 'lg'] as const;
 export interface FormLogo {
 	fileId: string;
 	name: string;
+	/** Rendered size in pixels, already fitted inside the logo preview box. Missing for older logos. */
+	width?: number;
+	height?: number;
 }
 
 export interface FormTheme {
@@ -101,10 +167,21 @@ export interface UploadedFile {
 }
 export type AnswerValue = string | string[] | UploadedFile | null;
 
+export const SUBMISSION_STATUSES = ['new', 'read', 'flagged'] as const;
+export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number];
+
+export function isSubmissionStatus(value: unknown): value is SubmissionStatus {
+	return typeof value === 'string' && (SUBMISSION_STATUSES as readonly string[]).includes(value);
+}
+
 export interface SubmissionData {
 	formId: string;
 	answers: Record<string, AnswerValue>;
 	userAgent: string;
+	/** Triage state set by workspace members. Responses without one are treated as new. */
+	status?: SubmissionStatus;
+	/** True when the response came through an embedded form. */
+	embed?: boolean;
 }
 export type SubmissionDocument = Models.Document & SubmissionData;
 
