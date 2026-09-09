@@ -23,8 +23,8 @@
 			<div>
 				<p class="font-medium">This form is a draft.</p>
 				<p class="mt-0.5">
-					The link below will not work until you publish the form from the header or the Settings
-					tab.
+					The link below will not work until you publish the form with the Publish button at the
+					top.
 				</p>
 			</div>
 		</div>

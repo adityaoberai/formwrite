@@ -38,7 +38,7 @@
 	let publishing = $state(false);
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col bg-canvas lg:h-full">
+<div class="flex h-full min-h-0 flex-1 flex-col bg-canvas">
 	<header class="border-b border-stone-200 bg-white">
 		<div class="flex items-center gap-3 px-4 pt-3 md:px-6">
 			<a
@@ -51,16 +51,17 @@
 				{data.form.title}
 			</h1>
 			<StatusBadge status={data.form.status} />
-			<div class="hidden items-center gap-2 sm:flex">
+			<div class="flex items-center gap-2">
 				{#if published}
 					<a
 						href={data.publicUrl}
 						target="_blank"
 						rel="noopener"
-						class="btn btn-secondary btn-sm"
+						class="btn btn-secondary btn-sm max-sm:size-8 max-sm:p-0"
 						title="Open public form"
+						aria-label="Open public form"
 					>
-						<Icon name="external-link" size={14} /> Open
+						<Icon name="external-link" size={14} /> <span class="max-sm:sr-only">Open</span>
 					</a>
 				{/if}
 				{#if data.canEdit}
