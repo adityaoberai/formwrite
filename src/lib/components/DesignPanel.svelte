@@ -46,7 +46,7 @@
 		logoRemoveFormId: string;
 	} = $props();
 
-	const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/svg+xml';
+	const LOGO_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
 
 	const sectionCount = $derived(fields.filter((f) => f.type === 'section').length);
 	const steps = $derived(splitSteps(fields));
@@ -92,7 +92,7 @@
 <div class="divide-y divide-stone-100">
 	<div class="p-5">
 		<h3 class="text-sm font-semibold">Logo</h3>
-		<p class="help mt-0.5">Shown above the form title. PNG, JPG, WebP, GIF or SVG up to 2 MB.</p>
+		<p class="help mt-0.5">Shown above the form title. PNG, JPG, WebP or GIF up to 2 MB.</p>
 		<div class="mt-3 flex flex-wrap items-center gap-4">
 			{#if theme.logo}
 				<img

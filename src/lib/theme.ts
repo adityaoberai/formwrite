@@ -63,7 +63,24 @@ function normalizeLogo(input: unknown): FormLogo | null {
 	if (!input || typeof input !== 'object') return null;
 	const l = input as Record<string, unknown>;
 	if (typeof l.fileId !== 'string' || !FILE_ID.test(l.fileId)) return null;
-	return { fileId: l.fileId, name: typeof l.name === 'string' ? l.name.slice(0, 120) : 'logo' };
+	const logo: FormLogo = {
+		fileId: l.fileId,
+		name: typeof l.name === 'string' ? l.name.slice(0, 120) : 'logo'
+	};
+	const dim = (v: unknown) => (Number.isInteger(v) && (v as number) > 0 ? (v as number) : null);
+	const width = dim(l.width);
+	const height = dim(l.height);
+	if (width && height) Object.assign(logo, fitLogo(width, height));
+	return logo;
+}
+
+/** Scale a width/height pair down (never up) so it fits inside the LOGO_PREVIEW box. */
+export function fitLogo(width: number, height: number): { width: number; height: number } {
+	const scale = Math.min(1, LOGO_PREVIEW.width / width, LOGO_PREVIEW.height / height);
+	return {
+		width: Math.max(1, Math.round(width * scale)),
+		height: Math.max(1, Math.round(height * scale))
+	};
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;

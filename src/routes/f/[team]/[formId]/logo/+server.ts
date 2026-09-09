@@ -10,9 +10,11 @@ import type { FormDocument } from '$lib/types';
 const ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
 
 /**
- * Serves a form's logo as a resized preview (never the original file), capped at LOGO_PREVIEW so a
- * large upload cannot blow up the page. Anyone can load it for a published form; for drafts only
- * workspace members can, which is what lets the editor preview show it before publishing.
+ * Serves a form's logo as a resized preview (never the original file) that fits inside the
+ * LOGO_PREVIEW box, so a large upload cannot blow up the page. The fitted size is measured at
+ * upload time; older logos without one get a height-only preview, which keeps the aspect ratio.
+ * Anyone can load it for a published form; for drafts only workspace members can, which is what
+ * lets the editor preview show it before publishing.
  */
 export const GET: RequestHandler = async ({ params, locals, setHeaders }) => {
 	if (!ID.test(params.team) || !ID.test(params.formId)) error(404, 'Not found');
@@ -42,11 +44,14 @@ export const GET: RequestHandler = async ({ params, locals, setHeaders }) => {
 	}
 
 	try {
+		const size =
+			logo.width && logo.height
+				? { width: logo.width, height: logo.height }
+				: { height: LOGO_PREVIEW.height };
 		const bytes = await admin.storage.getFilePreview({
 			bucketId: bucketId(params.team),
 			fileId: logo.fileId,
-			width: LOGO_PREVIEW.width,
-			height: LOGO_PREVIEW.height,
+			...size,
 			output: ImageFormat.Webp
 		});
 		setHeaders({

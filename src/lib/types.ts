@@ -116,6 +116,9 @@ export const THEME_LOGO_SIZES = ['sm', 'md', 'lg'] as const;
 export interface FormLogo {
 	fileId: string;
 	name: string;
+	/** Rendered size in pixels, already fitted inside the logo preview box. Missing for older logos. */
+	width?: number;
+	height?: number;
 }
 
 export interface FormTheme {
