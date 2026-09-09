@@ -4,14 +4,9 @@ import type { Actions, PageServerLoad } from './$types';
 import { DATABASE_ID } from '$lib/server/appwrite';
 import { requireUser } from '$lib/server/auth';
 import { describeError, notFoundOnFailure } from '$lib/server/errors';
-import { bucketId, formsCollection, submissionsCollection } from '$lib/server/tenant';
-import {
-	isQuestion,
-	isUploadedFile,
-	type FormData,
-	type FormDocument,
-	type SubmissionDocument
-} from '$lib/types';
+import { deleteFormCascade } from '$lib/server/forms';
+import { formsCollection, submissionsCollection } from '$lib/server/tenant';
+import { isQuestion, type FormData, type FormDocument } from '$lib/types';
 
 export const load: PageServerLoad = async (event) => {
 	const { appwrite } = requireUser(event);
@@ -112,34 +107,7 @@ export const actions: Actions = {
 		if (!formId) return fail(400, { message: 'Missing form' });
 
 		try {
-			// Remove the form's submissions and their uploaded files first, then the form itself.
-			for (;;) {
-				const page = await appwrite.db.listDocuments<SubmissionDocument>({
-					databaseId: DATABASE_ID,
-					collectionId: submissionsCollection(teamId),
-					queries: [Query.equal('formId', formId), Query.limit(100)]
-				});
-				if (page.documents.length === 0) break;
-				for (const sub of page.documents) {
-					for (const value of Object.values(sub.answers ?? {})) {
-						if (isUploadedFile(value)) {
-							await appwrite.storage
-								.deleteFile({ bucketId: bucketId(teamId), fileId: value.fileId })
-								.catch(() => undefined);
-						}
-					}
-					await appwrite.db.deleteDocument({
-						databaseId: DATABASE_ID,
-						collectionId: submissionsCollection(teamId),
-						documentId: sub.$id
-					});
-				}
-			}
-			await appwrite.db.deleteDocument({
-				databaseId: DATABASE_ID,
-				collectionId: formsCollection(teamId),
-				documentId: formId
-			});
+			await deleteFormCascade(appwrite, teamId, formId);
 		} catch (err) {
 			return fail(400, { message: describeError(err, 'Could not delete the form') });
 		}

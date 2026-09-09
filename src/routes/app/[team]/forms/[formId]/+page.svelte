@@ -1,130 +1,154 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import FormEditor from '$lib/components/FormEditor.svelte';
+	import { beforeNavigate } from '$app/navigation';
+	import Builder from '$lib/components/Builder.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import Toast from '$lib/components/Toast.svelte';
-	import { plural } from '$lib/format';
+	import type { FormField } from '$lib/types';
 	import type { ActionData, PageData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
-	let copied = $state(false);
-	let publishing = $state(false);
 
-	const base = $derived(`/app/${data.workspace.id}`);
-	const published = $derived(data.form.status === 'published');
+	// The builder owns an editable copy of the form; `data` is only the starting point on purpose.
+	// svelte-ignore state_referenced_locally
+	let title = $state(data.form.title);
+	// svelte-ignore state_referenced_locally
+	let description = $state(data.form.description);
+	// svelte-ignore state_referenced_locally
+	let fields = $state<FormField[]>(structuredClone(data.form.fields));
+	// svelte-ignore state_referenced_locally
+	let lastSaved = $state(JSON.stringify({ title, description, fields }));
+	let saving = $state(false);
+	let savedAt = $state<string | null>(null);
+	let saveForm: HTMLFormElement | undefined = $state();
 
-	async function copyLink() {
-		try {
-			await navigator.clipboard.writeText(data.publicUrl);
-			copied = true;
-			setTimeout(() => (copied = false), 1500);
-		} catch {
-			copied = false;
+	const snapshot = $derived(JSON.stringify({ title, description, fields }));
+	const dirty = $derived(snapshot !== lastSaved);
+	const canEdit = $derived(data.canEdit);
+
+	function requestSave() {
+		if (!dirty || saving || !canEdit) return;
+		saveForm?.requestSubmit();
+	}
+
+	function onKeydown(e: KeyboardEvent) {
+		if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+			e.preventDefault();
+			requestSave();
 		}
 	}
+
+	beforeNavigate(({ cancel, willUnload }) => {
+		if (dirty && !willUnload && !confirm('You have unsaved changes. Leave without saving?'))
+			cancel();
+	});
 </script>
 
 <svelte:head><title>{data.form.title} - Formwrite</title></svelte:head>
 
-<Toast message={form?.saved ? 'Changes saved' : null} />
+<svelte:window
+	onkeydown={onKeydown}
+	onbeforeunload={(e) => {
+		if (dirty) e.preventDefault();
+	}}
+/>
 
-<nav class="mb-4 flex items-center gap-1.5 text-sm text-stone-500" aria-label="Breadcrumb">
-	<a href={base} class="hover:text-ink">Forms</a>
-	<Icon name="chevron-right" size={14} class="text-stone-300" />
-	<span class="truncate font-medium text-ink">{data.form.title}</span>
-</nav>
-
-<div class="card mb-6 flex flex-wrap items-center gap-4 p-4">
-	<div class="flex min-w-0 flex-1 items-center gap-3">
-		<span
-			class="grid size-10 shrink-0 place-items-center rounded-xl {published
-				? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
-				: 'bg-stone-100 text-stone-500'} ring-inset"
-		>
-			<Icon name={published ? 'globe' : 'lock'} size={18} />
-		</span>
-		<div class="min-w-0">
-			<div class="flex items-center gap-2">
-				<h1 class="truncate text-lg font-semibold tracking-tight">{data.form.title}</h1>
-				<StatusBadge status={data.form.status} />
-			</div>
-			<p class="text-sm text-stone-500">
-				{published
-					? 'Anyone with the link can respond.'
-					: 'Only workspace members can see this form.'}
-				<a
-					href="{base}/forms/{data.form.id}/submissions"
-					class="font-medium text-ink hover:underline">{plural(data.submissionCount, 'response')}</a
-				>
-			</p>
+<div class="flex h-full min-h-0 flex-col">
+	<div
+		class="flex flex-wrap items-center gap-3 border-b border-stone-200 bg-white px-4 py-3 md:px-6"
+	>
+		<div class="min-w-0 flex-1">
+			<input
+				class="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xl font-bold tracking-tight hover:border-stone-200 focus:border-brand-500 focus:bg-white focus:outline-none disabled:hover:border-transparent"
+				type="text"
+				bind:value={title}
+				placeholder="Form title"
+				maxlength="200"
+				disabled={!canEdit}
+				aria-label="Form title"
+			/>
+			<input
+				class="mt-0.5 w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-stone-500 hover:border-stone-200 focus:border-brand-500 focus:bg-white focus:outline-none disabled:hover:border-transparent"
+				type="text"
+				bind:value={description}
+				placeholder="Add a description shown under the title (optional)"
+				maxlength="2000"
+				disabled={!canEdit}
+				aria-label="Form description"
+			/>
 		</div>
+
+		<form
+			method="POST"
+			action="?/save"
+			bind:this={saveForm}
+			class="flex items-center gap-3"
+			use:enhance={() => {
+				saving = true;
+				const pending = snapshot;
+				return async ({ result, update }) => {
+					saving = false;
+					if (result.type === 'success') {
+						lastSaved = pending;
+						savedAt = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+					}
+					await update({ reset: false, invalidateAll: result.type === 'success' });
+				};
+			}}
+		>
+			<input type="hidden" name="title" value={title} />
+			<input type="hidden" name="description" value={description} />
+			<input type="hidden" name="fields" value={JSON.stringify(fields)} />
+			<span class="text-xs text-stone-500">
+				{#if saving}
+					Saving...
+				{:else if dirty}
+					<span class="inline-flex items-center gap-1.5 text-amber-700"
+						><span class="size-1.5 rounded-full bg-amber-500"></span>Unsaved changes</span
+					>
+				{:else if savedAt}
+					Saved at {savedAt}
+				{:else}
+					All changes saved
+				{/if}
+			</span>
+			{#if canEdit}
+				<button
+					type="submit"
+					class="btn btn-primary"
+					disabled={!dirty || saving}
+					title="Save (Ctrl/Cmd+S)"
+				>
+					<Icon name="check" size={16} /> Save
+				</button>
+			{/if}
+		</form>
 	</div>
 
-	<div class="flex flex-wrap items-center gap-2">
-		{#if published}
-			<div
-				class="flex items-center overflow-hidden rounded-lg border border-stone-300 bg-white shadow-xs"
-			>
-				<span class="hidden max-w-[260px] truncate px-3 py-2 text-xs text-stone-600 sm:block"
-					>{data.publicUrl}</span
-				>
-				<button
-					class="btn btn-ghost rounded-none border-l border-stone-200 px-3 py-2 text-xs"
-					type="button"
-					onclick={copyLink}
-				>
-					<Icon
-						name={copied ? 'check' : 'copy'}
-						size={14}
-						class={copied ? 'text-emerald-600' : ''}
-					/>
-					{copied ? 'Copied' : 'Copy link'}
-				</button>
-			</div>
-		{/if}
-		<a class="btn btn-secondary" href={data.publicUrl} target="_blank" rel="noopener">
-			<Icon name="external-link" size={14} />
-			{published ? 'Open' : 'Preview'}
-		</a>
-		{#if data.canEdit}
-			<form
-				method="POST"
-				action="?/publish"
-				use:enhance={() => {
-					publishing = true;
-					return async ({ update }) => {
-						publishing = false;
-						await update();
-					};
-				}}
-			>
-				<input type="hidden" name="status" value={published ? 'draft' : 'published'} />
-				<button
-					class="btn {published ? 'btn-secondary' : 'btn-primary'}"
-					type="submit"
-					disabled={publishing}
-				>
-					<Icon name={published ? 'lock' : 'send'} size={14} />
-					{publishing ? 'Updating...' : published ? 'Unpublish' : 'Publish form'}
-				</button>
-			</form>
-		{/if}
+	{#if form?.message}
+		<div
+			class="flex items-center gap-2 border-b border-red-200 bg-red-50 px-6 py-2 text-sm text-red-800"
+			role="alert"
+		>
+			<Icon name="alert-circle" size={15} />
+			{form.message}
+		</div>
+	{/if}
+	{#if !canEdit}
+		<div
+			class="flex items-center gap-2 border-b border-stone-200 bg-stone-100 px-6 py-2 text-sm text-stone-600"
+		>
+			<Icon name="eye" size={15} /> You are viewing this form read-only. Editors and owners can make changes.
+		</div>
+	{/if}
+
+	<div class="min-h-0 flex-1">
+		<Builder
+			bind:fields
+			theme={data.form.theme}
+			{title}
+			{description}
+			logoUrl={data.logoUrl}
+			disabled={!canEdit}
+		/>
 	</div>
 </div>
-
-{#key data.form.updatedAt}
-	<FormEditor
-		initial={{
-			title: data.form.title,
-			description: data.form.description,
-			successMessage: data.form.successMessage,
-			fields: data.form.fields,
-			theme: data.form.theme
-		}}
-		disabled={!data.canEdit}
-		error={form && 'message' in form ? (form.message ?? null) : null}
-		saved={!!(form && 'saved' in form && form.saved)}
-		logoUrl={data.logoUrl}
-	/>
-{/key}

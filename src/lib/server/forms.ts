@@ -1,8 +1,21 @@
-import { FIELD_TYPES, FIELD_TYPES_WITH_OPTIONS, type FormField, type FieldType } from '$lib/types';
+import { Query } from 'node-appwrite';
+import { DATABASE_ID, type SessionServices } from '$lib/server/appwrite';
+import { bucketId, formsCollection, submissionsCollection } from '$lib/server/tenant';
+import {
+	FIELD_TYPES,
+	FIELD_TYPES_WITH_OPTIONS,
+	RATING_SCALES,
+	isLayoutType,
+	isUploadedFile,
+	type FormField,
+	type FieldType,
+	type SubmissionDocument
+} from '$lib/types';
 
 const MAX_FIELDS = 60;
 const MAX_OPTIONS = 50;
 const MAX_LABEL = 200;
+const MAX_PARAGRAPH = 1000;
 const MAX_TEXT = 5000;
 const FIELD_ID = /^q_[a-z0-9]{4,24}$/;
 
@@ -36,13 +49,17 @@ export function parseFields(raw: string): FormField[] {
 		seen.add(id);
 
 		const label =
-			str(field.label, MAX_LABEL) ||
-			(type === 'section' ? `Section ${index + 1}` : `Question ${index + 1}`);
+			str(field.label, type === 'paragraph' ? MAX_PARAGRAPH : MAX_LABEL) ||
+			(type === 'section'
+				? `Section ${index + 1}`
+				: type === 'paragraph'
+					? 'Paragraph'
+					: `Question ${index + 1}`);
 		const out: FormField = {
 			id,
 			type,
 			label,
-			required: type !== 'section' && field.required === true
+			required: !isLayoutType(type) && field.required === true
 		};
 		const placeholder = str(field.placeholder, MAX_LABEL);
 		const helpText = str(field.helpText, MAX_LABEL * 2);
@@ -57,6 +74,10 @@ export function parseFields(raw: string): FormField[] {
 				: [];
 			if (options.length === 0) throw new Error(`"${label}" needs at least one option`);
 			out.options = options;
+		}
+		if (type === 'rating') {
+			const max = Number(field.max);
+			out.max = (RATING_SCALES as readonly number[]).includes(max) ? max : 5;
 		}
 		return out;
 	});
@@ -80,6 +101,7 @@ export interface ValidationResult {
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE = /^\+?[0-9 ()./-]{6,20}$/;
 
 /** Validate a public submission against the form's fields. Files are returned for upload, not stored. */
 export function validateSubmission(
@@ -92,7 +114,7 @@ export function validateSubmission(
 	const values: Record<string, string | string[]> = {};
 
 	for (const field of fields) {
-		if (field.type === 'section') continue;
+		if (isLayoutType(field.type)) continue;
 		const key = field.id;
 		if (field.type === 'file') {
 			const entry = formData.get(key);
@@ -125,10 +147,26 @@ export function validateSubmission(
 			continue;
 		}
 
+		let stored = raw;
 		switch (field.type) {
 			case 'email':
 				if (!EMAIL.test(raw)) errors[key] = 'Enter a valid email address';
+				else stored = raw.toLowerCase();
 				break;
+			case 'phone':
+				if (!PHONE.test(raw)) errors[key] = 'Enter a valid phone number';
+				break;
+			case 'url': {
+				const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+				try {
+					const url = new URL(withScheme);
+					if (!url.hostname.includes('.')) throw new Error('bad host');
+					stored = url.toString();
+				} catch {
+					errors[key] = 'Enter a valid link';
+				}
+				break;
+			}
 			case 'number':
 				if (!Number.isFinite(Number(raw))) errors[key] = 'Enter a number';
 				break;
@@ -139,9 +177,57 @@ export function validateSubmission(
 			case 'radio':
 				if (!field.options?.includes(raw)) errors[key] = 'Choose one of the listed options';
 				break;
+			case 'yes_no': {
+				const v = raw.toLowerCase();
+				if (v !== 'yes' && v !== 'no') errors[key] = 'Choose yes or no';
+				else stored = v === 'yes' ? 'Yes' : 'No';
+				break;
+			}
+			case 'rating': {
+				const n = Number(raw);
+				const max = field.max ?? 5;
+				if (!Number.isInteger(n) || n < 1 || n > max)
+					errors[key] = `Pick a rating between 1 and ${max}`;
+				else stored = String(n);
+				break;
+			}
 		}
-		answers[key] = { kind: 'value', value: raw };
+		answers[key] = { kind: 'value', value: stored };
 	}
 
 	return { answers, errors, values };
+}
+
+/**
+ * Delete a form together with every response and uploaded file that belongs to it. Runs with the
+ * member's session, so Appwrite refuses it for viewers and for other tenants.
+ */
+export async function deleteFormCascade(appwrite: SessionServices, teamId: string, formId: string) {
+	for (;;) {
+		const page = await appwrite.db.listDocuments<SubmissionDocument>({
+			databaseId: DATABASE_ID,
+			collectionId: submissionsCollection(teamId),
+			queries: [Query.equal('formId', formId), Query.limit(100)]
+		});
+		if (page.documents.length === 0) break;
+		for (const sub of page.documents) {
+			for (const value of Object.values(sub.answers ?? {})) {
+				if (isUploadedFile(value)) {
+					await appwrite.storage
+						.deleteFile({ bucketId: bucketId(teamId), fileId: value.fileId })
+						.catch(() => undefined);
+				}
+			}
+			await appwrite.db.deleteDocument({
+				databaseId: DATABASE_ID,
+				collectionId: submissionsCollection(teamId),
+				documentId: sub.$id
+			});
+		}
+	}
+	await appwrite.db.deleteDocument({
+		databaseId: DATABASE_ID,
+		collectionId: formsCollection(teamId),
+		documentId: formId
+	});
 }

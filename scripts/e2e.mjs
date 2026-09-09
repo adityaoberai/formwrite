@@ -145,8 +145,9 @@ try {
 	ok(
 		editor.res.status === 200 &&
 			editor.text.includes('Feedback') &&
-			editor.text.includes('Publish form'),
-		'GET editor renders draft form'
+			editor.text.includes('Publish') &&
+			editor.text.includes('Nothing selected'),
+		'GET editor renders the builder for a draft form'
 	);
 
 	const fields = JSON.stringify([
@@ -171,12 +172,7 @@ try {
 	const save = await req(`/app/${teamId}/forms/${formId}?/save`, {
 		cookie,
 		method: 'POST',
-		form: {
-			title: 'Feedback survey',
-			description: 'Tell us more',
-			successMessage: 'Cheers!',
-			fields
-		}
+		form: { title: 'Feedback survey', description: 'Tell us more', fields }
 	});
 	ok(
 		save.res.status === 200 && save.text.includes('saved'),
@@ -203,13 +199,12 @@ try {
 	);
 
 	// Sections and design: a section marker plus a custom theme round-trip to the public page.
-	const themedSave = await req(`/app/${teamId}/forms/${formId}?/save`, {
+	const sectionSave = await req(`/app/${teamId}/forms/${formId}?/save`, {
 		cookie,
 		method: 'POST',
 		form: {
 			title: 'Feedback survey',
 			description: 'Tell us more',
-			successMessage: 'Cheers!',
 			fields: JSON.stringify([
 				...JSON.parse(fields).slice(0, 2),
 				{
@@ -220,7 +215,15 @@ try {
 					required: true
 				},
 				...JSON.parse(fields).slice(2)
-			]),
+			])
+		}
+	});
+	ok(sectionSave.res.status === 200, 'POST ?/save accepts sections');
+	const themedSave = await req(`/app/${teamId}/forms/${formId}/settings?/design`, {
+		cookie,
+		method: 'POST',
+		form: {
+			successMessage: 'Cheers!',
 			theme: JSON.stringify({
 				accent: '#0F766E',
 				background: 'dark',
@@ -233,11 +236,19 @@ try {
 			})
 		}
 	});
-	ok(themedSave.res.status === 200, 'POST ?/save accepts sections and theme');
+	ok(themedSave.res.status === 200, 'POST settings?/design stores theme and success message');
 	const editorThemed = await req(`/app/${teamId}/forms/${formId}`, { cookie });
+	const settingsThemed = await req(`/app/${teamId}/forms/${formId}/settings`, { cookie });
 	ok(
-		editorThemed.text.includes('#0f766e') && editorThemed.text.includes('Your experience'),
-		'editor loads normalized theme and section'
+		editorThemed.text.includes('Your experience') && settingsThemed.text.includes('#0f766e'),
+		'builder shows the section and settings load the normalized theme'
+	);
+	const share = await req(`/app/${teamId}/forms/${formId}/share`, { cookie });
+	ok(
+		share.res.status === 200 &&
+			share.text.includes(`/f/${teamId}/${formId}?embed=1`) &&
+			share.text.includes('share/qr'),
+		'share page renders link, embed snippet and QR code'
 	);
 
 	// Logo upload goes into the workspace bucket and is served only to members while the form is a draft.
@@ -247,7 +258,7 @@ try {
 	);
 	const logoData = new FormData();
 	logoData.set('logo', new File([png], 'logo.png', { type: 'image/png' }));
-	const logoUp = await req(`/app/${teamId}/forms/${formId}?/logo`, {
+	const logoUp = await req(`/app/${teamId}/forms/${formId}/settings?/logo`, {
 		cookie,
 		method: 'POST',
 		multipart: logoData
@@ -259,7 +270,7 @@ try {
 	);
 	const badLogo = new FormData();
 	badLogo.set('logo', new File(['hi'], 'x.txt', { type: 'text/plain' }));
-	const logoBad = await req(`/app/${teamId}/forms/${formId}?/logo`, {
+	const logoBad = await req(`/app/${teamId}/forms/${formId}/settings?/logo`, {
 		cookie,
 		method: 'POST',
 		multipart: badLogo
@@ -271,8 +282,8 @@ try {
 	const logoMember = await req(`/f/${teamId}/${formId}/logo`, { cookie });
 	ok(
 		logoMember.res.status === 200 &&
-			(logoMember.res.headers.get('content-type') ?? '').startsWith('image/png'),
-		'draft logo is served to members'
+			(logoMember.res.headers.get('content-type') ?? '').startsWith('image/webp'),
+		'draft logo is served to members as a resized preview'
 	);
 	const logoGuest = await req(`/f/${teamId}/${formId}/logo`);
 	ok(
@@ -281,12 +292,12 @@ try {
 		String(logoGuest.res.status)
 	);
 
-	const publish = await req(`/app/${teamId}/forms/${formId}?/publish`, {
+	const publish = await req(`/app/${teamId}/forms/${formId}/settings?/publish`, {
 		cookie,
 		method: 'POST',
-		form: { status: 'published' }
+		form: {}
 	});
-	ok(publish.res.status === 200, 'POST ?/publish publishes');
+	ok(publish.res.status === 200, 'POST settings?/publish publishes');
 
 	const pub = await req(`/f/${teamId}/${formId}`);
 	ok(
@@ -314,7 +325,7 @@ try {
 		'published logo is public and cacheable'
 	);
 	ok(pub.text.includes(`/f/${teamId}/${formId}/logo?v=`), 'public form renders the logo');
-	const logoRemove = await req(`/app/${teamId}/forms/${formId}?/removeLogo`, {
+	const logoRemove = await req(`/app/${teamId}/forms/${formId}/settings?/removeLogo`, {
 		cookie,
 		method: 'POST',
 		form: {}
@@ -359,15 +370,36 @@ try {
 	const goodSub2 = await req(`/f/${teamId}/${formId}`, { method: 'POST', multipart: good2 });
 	ok(goodSub2.res.status === 200, 'second public submission');
 
-	const list = await req(`/app/${teamId}/forms/${formId}/submissions`, { cookie });
+	const list = await req(`/app/${teamId}/forms/${formId}/responses`, { cookie });
 	ok(
 		list.res.status === 200 &&
 			list.text.includes('2 responses') &&
 			list.text.includes('Ada Lovelace') &&
 			list.text.includes('note.txt') &&
 			list.text.includes('Docs, Pricing'),
-		'submissions page lists responses'
+		'responses page lists responses'
 	);
+	const flagged = await req(`/app/${teamId}/forms/${formId}/responses?status=flagged`, {
+		cookie
+	});
+	ok(
+		flagged.res.status === 200 && flagged.text.includes('No flagged responses'),
+		'responses page filters by status'
+	);
+	const subId = list.text.match(/data-id="([a-z0-9]+)"/)?.[1];
+	ok(!!subId, 'responses table renders row ids');
+	if (subId) {
+		const flag = await req(`/app/${teamId}/forms/${formId}/responses?/status`, {
+			cookie,
+			method: 'POST',
+			form: { id: subId, status: 'flagged' }
+		});
+		ok(flag.res.status === 200, 'owner flags a response', flag.text.slice(0, 120));
+		const flaggedNow = await req(`/app/${teamId}/forms/${formId}/responses?status=flagged`, {
+			cookie
+		});
+		ok(flaggedNow.text.includes('1 of 1'), 'flagged filter shows the flagged response');
+	}
 	const fileId = list.text.match(new RegExp(`/app/${teamId}/files/([a-z0-9]+)`))?.[1];
 	ok(!!fileId, 'submission links to uploaded file');
 
@@ -383,10 +415,10 @@ try {
 		ok(guestFile.res.status === 303, 'file route redirects guests');
 	}
 
-	const csv = await req(`/app/${teamId}/forms/${formId}/submissions/export`, { cookie });
+	const csv = await req(`/app/${teamId}/forms/${formId}/responses/export`, { cookie });
 	ok(
 		csv.res.status === 200 &&
-			csv.text.includes('Submitted at,Name,Email,Rating,Topics,Attachment') &&
+			csv.text.includes('Submitted at,Status,Name,Email,Rating,Topics,Attachment') &&
 			!csv.text.includes('Your experience') &&
 			csv.text.includes('Ada Lovelace') &&
 			csv.text.includes('Docs; Pricing'),
@@ -405,12 +437,12 @@ try {
 	const outsider = await mintUser('outsider');
 	const denied = await req(`/app/${teamId}`, { cookie: outsider.cookie });
 	ok(denied.res.status === 404, 'non-member gets 404 for the workspace', String(denied.res.status));
-	const deniedSubs = await req(`/app/${teamId}/forms/${formId}/submissions`, {
+	const deniedSubs = await req(`/app/${teamId}/forms/${formId}/responses`, {
 		cookie: outsider.cookie
 	});
 	ok(
 		deniedSubs.res.status === 404,
-		'non-member gets 404 for submissions',
+		'non-member gets 404 for responses',
 		String(deniedSubs.res.status)
 	);
 	if (fileId) {
@@ -449,6 +481,16 @@ try {
 		viewerCreate.res.status === 400,
 		'Appwrite blocks viewer from creating forms',
 		String(viewerCreate.res.status)
+	);
+	const viewerFlag = await req(`/app/${teamId}/forms/${formId}/responses?/status`, {
+		cookie: outsider.cookie,
+		method: 'POST',
+		form: { id: subId ?? 'x', status: 'read' }
+	});
+	ok(
+		viewerFlag.res.status === 403,
+		'viewer cannot triage responses',
+		String(viewerFlag.res.status)
 	);
 	const viewerInvite = await req(`/app/${teamId}/settings?/invite`, {
 		cookie: outsider.cookie,

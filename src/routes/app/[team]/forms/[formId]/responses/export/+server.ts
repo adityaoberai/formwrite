@@ -43,7 +43,9 @@ export const GET: RequestHandler = async (event) => {
 	}
 
 	const fields = (form.fields ?? []).filter(isQuestion);
-	const lines: string[] = [['Submitted at', ...fields.map((f) => f.label)].map(cell).join(',')];
+	const lines: string[] = [
+		['Submitted at', 'Status', ...fields.map((f) => f.label)].map(cell).join(',')
+	];
 
 	let cursor: string | null = null;
 	let count = 0;
@@ -59,6 +61,7 @@ export const GET: RequestHandler = async (event) => {
 			lines.push(
 				[
 					sub.$createdAt,
+					sub.status ?? 'new',
 					...fields.map((f) => render(sub.answers?.[f.id], event.url.origin, teamId))
 				]
 					.map(cell)
@@ -70,7 +73,7 @@ export const GET: RequestHandler = async (event) => {
 		cursor = page.documents[page.documents.length - 1].$id;
 	}
 
-	const filename = `${form.title.replace(/[^\w.-]+/g, '_') || 'submissions'}.csv`;
+	const filename = `${form.title.replace(/[^\w.-]+/g, '_') || 'responses'}.csv`;
 	return new Response('﻿' + lines.join('\r\n') + '\r\n', {
 		headers: {
 			'content-type': 'text/csv; charset=utf-8',

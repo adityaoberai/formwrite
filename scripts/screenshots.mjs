@@ -164,7 +164,14 @@ try {
 					helpText: 'Optional, but we appreciate detail.'
 				},
 				{ id: 'q_file', type: 'file', label: 'Screenshot', required: false }
-			]),
+			])
+		}
+	});
+	await req(`/app/${teamId}/forms/${formId}/settings?/design`, {
+		cookie,
+		method: 'POST',
+		form: {
+			successMessage: 'Thanks, we read every response.',
 			theme: JSON.stringify({
 				accent: '#0f766e',
 				background: 'gradient',
@@ -184,16 +191,16 @@ try {
 				type: 'image/png'
 			})
 		);
-		await req(`/app/${teamId}/forms/${formId}?/logo`, {
+		await req(`/app/${teamId}/forms/${formId}/settings?/logo`, {
 			cookie,
 			method: 'POST',
 			multipart: logoData
 		});
 	}
-	await req(`/app/${teamId}/forms/${formId}?/publish`, {
+	await req(`/app/${teamId}/forms/${formId}/settings?/publish`, {
 		cookie,
 		method: 'POST',
-		form: { status: 'published' }
+		form: {}
 	});
 	for (const [name, email, rating, more] of [
 		['Grace Hopper', 'grace@example.com', 'Great', 'The live preview is lovely.'],
@@ -318,37 +325,25 @@ try {
 	);
 	await shot('/app', 'workspaces.png', { fullPage: false });
 	await shot(`/app/${teamId}`, 'forms.png', { fullPage: false });
-	await shot(`/app/${teamId}/forms/${formId}`, 'editor.png');
+	await shot(`/app/${teamId}/forms/${formId}`, 'builder.png', { fullPage: false });
 	await send(
 		'Runtime.evaluate',
-		{ expression: `document.querySelector('[role=tab]:nth-child(2)').click()` },
+		{ expression: `document.querySelector('[role=tab][aria-selected=false]').click()` },
 		sessionId
 	);
 	await new Promise((r) => setTimeout(r, 500));
 	{
-		const {
-			result: { cssContentSize }
-		} = await send('Page.getLayoutMetrics', {}, sessionId);
-		const h = Math.min(Math.ceil(cssContentSize.height), 4000);
-		await send(
-			'Emulation.setDeviceMetricsOverride',
-			{ width: 1440, height: h, deviceScaleFactor: 1, mobile: false },
-			sessionId
-		);
-		await new Promise((r) => setTimeout(r, 300));
 		const { result } = await send(
 			'Page.captureScreenshot',
-			{
-				format: 'png',
-				clip: { x: 0, y: 0, width: 1440, height: h, scale: 1 },
-				captureBeyondViewport: true
-			},
+			{ format: 'png', clip: { x: 0, y: 0, width: 1440, height: 900, scale: 1 } },
 			sessionId
 		);
-		writeFileSync(join(OUT, 'editor-design.png'), Buffer.from(result.data, 'base64'));
-		console.log('saved editor-design.png');
+		writeFileSync(join(OUT, 'builder-preview.png'), Buffer.from(result.data, 'base64'));
+		console.log('saved builder-preview.png');
 	}
-	await shot(`/app/${teamId}/forms/${formId}/submissions`, 'submissions.png', { fullPage: false });
+	await shot(`/app/${teamId}/forms/${formId}/share`, 'share.png', { fullPage: false });
+	await shot(`/app/${teamId}/forms/${formId}/responses`, 'responses.png', { fullPage: false });
+	await shot(`/app/${teamId}/forms/${formId}/settings`, 'form-settings.png');
 	await shot(`/app/${teamId}/settings`, 'settings.png');
 	await shot(`/f/${teamId}/${formId}`, 'public-form.png');
 	await shot(`/f/${teamId}/${formId}`, 'public-form-mobile.png', { width: 390 });

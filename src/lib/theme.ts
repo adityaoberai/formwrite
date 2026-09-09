@@ -47,11 +47,15 @@ export const LOGO_SIZE_LABELS: Record<FormTheme['logoSize'], string> = {
 	md: 'Medium',
 	lg: 'Large'
 };
+/** Rendered logo height; the image keeps its aspect ratio and never exceeds LOGO_MAX_WIDTH. */
 export const logoHeightClass: Record<FormTheme['logoSize'], string> = {
-	sm: 'h-8',
-	md: 'h-12',
-	lg: 'h-16'
+	sm: 'h-5',
+	md: 'h-7',
+	lg: 'h-10'
 };
+export const LOGO_MAX_WIDTH_CLASS = 'max-w-[180px]';
+/** Server-side cap for logo previews, in pixels. */
+export const LOGO_PREVIEW = { width: 720, height: 240 } as const;
 
 const FILE_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
 

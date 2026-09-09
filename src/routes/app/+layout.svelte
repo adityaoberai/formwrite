@@ -15,6 +15,9 @@
 	const path = $derived(page.url.pathname);
 	const isActive = (href: string, exact = false) =>
 		exact ? path === href : path === href || path.startsWith(href + '/');
+	// The form editor (Build, Share, Responses, Settings) has its own header and fills the main area
+	// edge to edge next to the sidebar instead of sitting in the padded content column.
+	const editor = $derived(page.route.id?.includes('/forms/[formId]') ?? false);
 </script>
 
 {#snippet switcher()}
@@ -116,7 +119,7 @@
 		{@render userMenu()}
 	</aside>
 
-	<div class="flex min-w-0 flex-col">
+	<div class="flex min-w-0 flex-col {editor ? 'lg:h-screen' : ''}">
 		<header
 			class="sticky top-0 z-20 border-b border-stone-200 bg-canvas/90 backdrop-blur lg:hidden"
 		>
@@ -130,7 +133,11 @@
 				</form>
 			</div>
 		</header>
-		<main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+		<main
+			class={editor
+				? 'flex min-h-0 flex-1 flex-col'
+				: 'mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8'}
+		>
 			{@render children()}
 		</main>
 	</div>
