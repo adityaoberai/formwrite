@@ -119,9 +119,12 @@
 		{@render userMenu()}
 	</aside>
 
-	<div class="flex min-w-0 flex-col {editor ? 'lg:h-screen' : ''}">
+	<div class="flex min-w-0 flex-col {editor ? 'h-dvh lg:h-screen' : ''}">
+		<!-- The editor brings its own header with a back link, so this one steps aside there. -->
 		<header
-			class="sticky top-0 z-20 border-b border-stone-200 bg-canvas/90 backdrop-blur lg:hidden"
+			class="sticky top-0 z-20 border-b border-stone-200 bg-canvas/90 backdrop-blur {editor
+				? 'hidden'
+				: 'lg:hidden'}"
 		>
 			<div class="flex items-center gap-3 px-4 py-3">
 				<Logo href="/app" compact />
