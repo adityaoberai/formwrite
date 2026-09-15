@@ -23,7 +23,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const { account } = createAdminClient();
+			const { account } = createAdminClient(request);
 			// Creates the account on first sign-in; otherwise the userId is ignored by Appwrite.
 			const token = await account.createEmailToken({ userId: ID.unique(), email, phrase: true });
 			setPendingOtp(cookies, {

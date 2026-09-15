@@ -136,7 +136,7 @@ export const actions: Actions = {
 		const theme = normalizeTheme(form.theme);
 		const previous = theme.logo;
 
-		const admin = createAdminClient();
+		const admin = createAdminClient(event.request);
 		const safeName = file.name.replace(/[^\w.() -]+/g, '_').slice(0, 120) || 'logo';
 		let uploaded;
 		try {
@@ -189,7 +189,7 @@ export const actions: Actions = {
 				data: { theme: { ...theme, logo: null } }
 			});
 			if (theme.logo) {
-				await createAdminClient()
+				await createAdminClient(event.request)
 					.storage.deleteFile({ bucketId: bucketId(teamId), fileId: theme.logo.fileId })
 					.catch(() => undefined);
 			}

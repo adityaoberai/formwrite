@@ -9,7 +9,7 @@ export const load: LayoutServerLoad = async (event) => {
 	try {
 		const { team, role } = await loadWorkspace(
 			appwrite,
-			createAdminClient(),
+			createAdminClient(event.request),
 			user.$id,
 			event.params.team
 		);

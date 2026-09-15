@@ -21,7 +21,7 @@ export const actions: Actions = {
 
 		let teamId: string;
 		try {
-			const team = await provisionWorkspace(appwrite, createAdminClient(), name);
+			const team = await provisionWorkspace(appwrite, createAdminClient(event.request), name);
 			teamId = team.$id;
 		} catch (err) {
 			return fail(400, { name, message: describeError(err, 'Could not create the workspace') });

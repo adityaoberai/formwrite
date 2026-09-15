@@ -22,12 +22,32 @@ export type AdminServices = ReturnType<typeof createAdminClient>;
 export type SessionServices = ReturnType<typeof createSessionClient>;
 
 /**
- * Privileged client backed by the server API key. Bypasses permissions, so it is only used for
+ * Header on which Appwrite Sites delivers a dynamic API key to every SSR request. The key is minted
+ * per request with the scopes configured on the site, so no long-lived secret has to be stored.
+ */
+export const DYNAMIC_KEY_HEADER = 'x-appwrite-key';
+
+/**
+ * Resolve the API key for the current request: the dynamic key injected by Appwrite Sites, or the
+ * APPWRITE_API_KEY environment variable when running outside Appwrite (local dev, e2e scripts).
+ */
+export function apiKeyFor(request: Request): string {
+	const dynamic = request.headers.get(DYNAMIC_KEY_HEADER);
+	if (dynamic) return dynamic;
+	const fallback = env.APPWRITE_API_KEY;
+	if (fallback) return fallback;
+	throw new Error(
+		`No API key available: expected a ${DYNAMIC_KEY_HEADER} header from Appwrite Sites or an APPWRITE_API_KEY environment variable`
+	);
+}
+
+/**
+ * Privileged client backed by the request's API key. Bypasses permissions, so it is only used for
  * operations Appwrite cannot authorise on the user's behalf: sending OTP codes, exchanging them for
  * sessions, provisioning tenant resources, and accepting anonymous public form submissions.
  */
-export function createAdminClient() {
-	const client = baseClient().setKey(required('APPWRITE_API_KEY'));
+export function createAdminClient(request: Request) {
+	const client = baseClient().setKey(apiKeyFor(request));
 	return {
 		client,
 		account: new Account(client),

@@ -25,7 +25,7 @@ export const actions: Actions = {
 		}
 
 		try {
-			const { account } = createAdminClient();
+			const { account } = createAdminClient(request);
 			const session = await account.createSession({ userId: pending.userId, secret: code });
 			setSessionCookie(cookies, session);
 			clearPendingOtp(cookies);

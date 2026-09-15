@@ -15,7 +15,7 @@ import {
 export const load: PageServerLoad = async (event) => {
 	const { user, appwrite } = requireUser(event);
 	const teamId = event.params.team;
-	const admin = createAdminClient();
+	const admin = createAdminClient(event.request);
 	try {
 		// Membership is verified with the session; the full roster (with user IDs and emails) needs the key.
 		await loadWorkspace(appwrite, admin, user.$id, teamId);
@@ -44,7 +44,7 @@ async function requireOwner(event: Parameters<Actions[string]>[0]) {
 	const { user, appwrite } = requireUser(event);
 	const workspace = await loadWorkspace(
 		appwrite,
-		createAdminClient(),
+		createAdminClient(event.request),
 		user.$id,
 		event.params.team
 	).catch(() => null);
@@ -85,7 +85,7 @@ export const actions: Actions = {
 		}
 		try {
 			// Server-side membership creation joins the member immediately; they sign in with email OTP.
-			await createAdminClient().teams.createMembership({
+			await createAdminClient(event.request).teams.createMembership({
 				teamId: event.params.team,
 				email,
 				roles: [role]
@@ -139,7 +139,7 @@ export const actions: Actions = {
 			return fail(400, { destroy: 'Type the workspace name exactly to confirm' });
 		}
 		try {
-			await destroyWorkspace(createAdminClient(), event.params.team);
+			await destroyWorkspace(createAdminClient(event.request), event.params.team);
 		} catch (err) {
 			return fail(400, { destroy: describeError(err, 'Could not delete the workspace') });
 		}

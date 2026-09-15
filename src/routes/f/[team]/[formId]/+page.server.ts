@@ -20,9 +20,9 @@ const TEAM_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
  * Public forms are read with the API key because respondents are anonymous. The form is always
  * looked up inside the tenant's own collection, so a form ID can never resolve across tenants.
  */
-async function loadPublishedForm(teamId: string, formId: string) {
+async function loadPublishedForm(request: Request, teamId: string, formId: string) {
 	if (!TEAM_ID.test(teamId) || !TEAM_ID.test(formId)) error(404, 'Form not found');
-	const admin = createAdminClient();
+	const admin = createAdminClient(request);
 	let form: FormDocument;
 	try {
 		form = await admin.db.getDocument<FormDocument>({
@@ -39,8 +39,8 @@ async function loadPublishedForm(teamId: string, formId: string) {
 	return { admin, form };
 }
 
-export const load: PageServerLoad = async ({ params, url }) => {
-	const { form } = await loadPublishedForm(params.team, params.formId);
+export const load: PageServerLoad = async ({ params, request, url }) => {
+	const { form } = await loadPublishedForm(request, params.team, params.formId);
 	return {
 		// Embedded forms (?embed=1) drop the outer padding and branding so they sit inside an iframe.
 		embed: url.searchParams.get('embed') === '1',
@@ -57,7 +57,7 @@ export const load: PageServerLoad = async ({ params, url }) => {
 
 export const actions: Actions = {
 	default: async ({ params, request, url }) => {
-		const { admin, form } = await loadPublishedForm(params.team, params.formId);
+		const { admin, form } = await loadPublishedForm(request, params.team, params.formId);
 		const fields = form.fields ?? [];
 		const formData = await request.formData();
 		const { answers, errors, values } = validateSubmission(fields, formData, MAX_UPLOAD_BYTES);
