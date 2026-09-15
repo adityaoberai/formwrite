@@ -37,7 +37,7 @@ Every dashboard request runs through a **session client** bound to the signed-in
 
 Membership is proven with `teams.get` on the session client (it fails for non-members). Roles are then read with the API key via `users.listMemberships`, because Appwrite blanks `userId` on session-scoped membership listings.
 
-The **API key client** is used only where Appwrite cannot act on a user's behalf:
+The **API key client** is used only where Appwrite cannot act on a user's behalf. On Appwrite Sites it is backed by the dynamic API key that Appwrite mints for every SSR request (the `x-appwrite-key` header) with the scopes configured on the site, so the deployment stores no long-lived secret. Locally, `APPWRITE_API_KEY` from `.env` is used instead. It is needed for:
 
 - sending OTP codes and exchanging them for sessions
 - provisioning and destroying a tenant's collections and bucket
@@ -77,8 +77,10 @@ Respondents never sign in. Public routes live under `/f/[team]/[formId]` and onl
 
 ## Setup
 
-1. Copy `.env.example` to `.env` and fill in the endpoint, project ID, API key and database ID.
-2. In the Appwrite project, enable the **Email OTP** auth method and create a **DocumentsDB** database (a dedicated specification is required on Appwrite Cloud). The key needs these scopes: `sessions.write`, `users.read`, `users.write`, `teams.read`, `teams.write`, `documentsdb.*`, `buckets.read`, `buckets.write`, `files.read`, `files.write`.
+1. Copy `.env.example` to `.env` and fill in the endpoint, project ID, database ID and, for local development, an API key.
+2. In the Appwrite project, enable the **Email OTP** auth method and create a **DocumentsDB** database (a dedicated specification is required on Appwrite Cloud). The server needs these scopes: `sessions.write`, `users.read`, `users.write`, `teams.read`, `teams.write`, `documentsdb.*`, `buckets.read`, `buckets.write`, `files.read`, `files.write`.
+   - **Deployed on Appwrite Sites:** grant the scopes on the site itself (site settings, **Scopes**). Appwrite then passes a dynamic API key to every request and `APPWRITE_API_KEY` is not needed as a site variable.
+   - **Local development:** create an API key with the same scopes and put it in `APPWRITE_API_KEY`.
 3. Install and run:
 
 ```sh

@@ -100,7 +100,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Invalid request' });
 		}
 
-		const admin = createAdminClient();
+		const admin = createAdminClient(event.request);
 		try {
 			const workspace = await loadWorkspace(appwrite, admin, user.$id, teamId);
 			if (!canEdit(workspace.role)) {

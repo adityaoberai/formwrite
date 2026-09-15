@@ -16,9 +16,9 @@ const ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/;
  * Anyone can load it for a published form; for drafts only workspace members can, which is what
  * lets the editor preview show it before publishing.
  */
-export const GET: RequestHandler = async ({ params, locals, setHeaders }) => {
+export const GET: RequestHandler = async ({ params, request, locals, setHeaders }) => {
 	if (!ID.test(params.team) || !ID.test(params.formId)) error(404, 'Not found');
-	const admin = createAdminClient();
+	const admin = createAdminClient(request);
 
 	let form: FormDocument;
 	try {
